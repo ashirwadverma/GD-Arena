@@ -85,7 +85,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      className={`relative z-40 transition-all duration-300 ease-in-out shrink-0 flex flex-col justify-between glass-card border-r border-white/10 backdrop-blur-2xl bg-surface-200/95 min-h-screen ${
+      className={`relative z-40 transition-all duration-300 ease-in-out shrink-0 flex flex-col justify-between glass-card border-r border-white/10 backdrop-blur-2xl bg-[#0c0c0f]/95 min-h-screen ${
         isCollapsed ? 'w-20' : 'w-72'
       }`}
     >
@@ -98,20 +98,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="flex items-center space-x-3 cursor-pointer group overflow-hidden"
           >
             <div className="relative shrink-0">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 via-brand-500 to-brand-accent flex items-center justify-center shadow-lg shadow-brand-500/30 group-hover:scale-105 transition-transform">
-                <Bot className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-900 via-indigo-900 to-[#c6f135]/40 border border-[#c6f135]/40 flex items-center justify-center shadow-lg shadow-[#c6f135]/15 group-hover:scale-105 transition-transform">
+                <span className="text-xl text-[#c6f135] font-black group-hover:rotate-45 transition-transform duration-300">
+                  ✳
+                </span>
               </div>
-              <div className="absolute -inset-1 rounded-2xl bg-brand-500/20 blur-sm -z-10 group-hover:bg-brand-500/40 transition-colors" />
             </div>
 
             {!isCollapsed && (
               <div className="leading-tight animate-fade-in">
                 <div className="flex items-center space-x-1.5">
-                  <span className="text-base font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-indigo-200 bg-clip-text text-transparent">
+                  <span className="text-base font-black tracking-tight text-white">
                     GD Arena
                   </span>
-                  <span className="text-[8px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded bg-brand-500/20 text-brand-300 border border-brand-500/30">
-                    Pro
+                  <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-[#c6f135]/20 text-[#c6f135] border border-[#c6f135]/30">
+                    AI SAAS
                   </span>
                 </div>
                 <p className="text-[10px] text-slate-400 font-medium">Placement Simulator</p>
@@ -127,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
             aria-label={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
           >
-            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            {isCollapsed ? <ChevronRight className="w-4 h-4 text-[#c6f135]" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
         </div>
 
@@ -147,14 +148,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   isCollapsed ? 'justify-center p-3' : 'justify-between px-3.5 py-3'
                 } ${
                   isActive
-                    ? 'bg-gradient-to-r from-brand-600/90 to-brand-500/80 text-white shadow-lg shadow-brand-500/25 border border-brand-400/40'
+                    ? 'bg-gradient-to-r from-purple-950/90 to-indigo-950/70 text-white shadow-lg border border-[#c6f135]/50 shadow-[#c6f135]/10'
                     : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
                 }`}
               >
                 <div className="flex items-center space-x-3 min-w-0">
                   <div
                     className={`p-1.5 rounded-xl transition-colors ${
-                      isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-300'
+                      isActive ? 'bg-[#c6f135] text-black font-black' : 'text-slate-400 group-hover:text-[#c6f135]'
                     }`}
                   >
                     <Icon className="w-4 h-4 shrink-0" />
@@ -164,7 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div className="text-left leading-tight truncate">
                       <div
                         className={`text-xs font-bold truncate ${
-                          isActive ? 'text-white' : 'text-slate-200 group-hover:text-white'
+                          isActive ? 'text-[#c6f135]' : 'text-slate-200 group-hover:text-white'
                         }`}
                       >
                         {item.label}
@@ -176,10 +177,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {!isCollapsed && item.badge && (
                   <span
-                    className={`text-[9px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                    className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-full border shrink-0 ${
                       isActive
-                        ? 'bg-white/20 text-white border-white/30'
-                        : item.badgeColor || 'bg-white/5 text-slate-300 border-white/10'
+                        ? 'bg-[#c6f135]/20 text-[#c6f135] border-[#c6f135]/40'
+                        : 'bg-white/5 text-slate-400 border-white/10'
                     }`}
                   >
                     {item.badge}
@@ -201,32 +202,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Bottom Profile / Status Widget */}
       <div className="p-4 border-t border-white/5 space-y-3">
         {!isCollapsed ? (
-          <div className="p-3 rounded-2xl bg-surface-100/80 border border-white/5 space-y-2">
+          <div className="p-3.5 rounded-2xl bg-surface-100/80 border border-white/5 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-cyan-400 to-brand-500 flex items-center justify-center text-white text-[10px] font-black">
+                <div className="w-6 h-6 rounded-full bg-[#c6f135] flex items-center justify-center text-black text-[10px] font-black">
                   GD
                 </div>
                 <div>
                   <div className="text-xs font-bold text-slate-200">Candidate Mode</div>
-                  <div className="text-[9px] text-emerald-400 flex items-center space-x-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>Browser Tier A Audio</span>
+                  <div className="text-[9px] text-[#c6f135] flex items-center space-x-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#c6f135] animate-pulse" />
+                    <span>Tier-A Engine Active</span>
                   </div>
                 </div>
               </div>
-              <span className="text-[10px] font-mono text-slate-400">v1.2</span>
+              <span className="text-[10px] font-mono text-slate-500">v2.4</span>
             </div>
 
-            <div className="text-[10px] text-slate-400 flex items-center space-x-1 pt-1 border-t border-white/5">
-              <ShieldCheck className="w-3 h-3 text-brand-emerald shrink-0" />
-              <span className="truncate">Privacy First: Zero Audio Upload</span>
+            <div className="text-[10px] text-slate-400 flex items-center space-x-1 pt-1 border-t border-white/5 font-mono">
+              <ShieldCheck className="w-3 h-3 text-[#c6f135] shrink-0" />
+              <span className="truncate">Browser-Only Privacy</span>
             </div>
           </div>
         ) : (
           <div className="flex justify-center">
             <div
-              className="w-9 h-9 rounded-2xl bg-surface-100 border border-white/10 flex items-center justify-center text-cyan-400"
+              className="w-9 h-9 rounded-2xl bg-surface-100 border border-white/10 flex items-center justify-center text-[#c6f135]"
               title="Candidate Mode Active"
             >
               <Award className="w-4 h-4" />

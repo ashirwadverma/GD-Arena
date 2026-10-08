@@ -1,7 +1,5 @@
-'use client';
-
 import React from 'react';
-import { Bot, Sparkles, History, Terminal, ShieldCheck, Zap, Menu, Mic, Play } from 'lucide-react';
+import { Sparkles, History, Terminal, ShieldCheck, Zap, Menu, Mic, Play } from 'lucide-react';
 import { MainNavTab } from './Sidebar';
 
 interface HeaderProps {
@@ -32,16 +30,16 @@ export const Header: React.FC<HeaderProps> = ({
       case 'personas':
         return 'AI Panelist Personas';
       case 'settings':
-        return 'Settings & Audio Calibration';
+        return 'Settings & Calibration';
       default:
         return 'Practice Arena';
     }
   };
 
   return (
-    <header className="w-full sticky top-0 z-30 px-4 sm:px-6 lg:px-8 py-3 transition-all border-b border-white/5 bg-surface-200/80 backdrop-blur-xl">
+    <header className="w-full sticky top-0 z-30 px-4 sm:px-6 lg:px-8 py-3 transition-all border-b border-white/5 bg-[#080808]/90 backdrop-blur-2xl">
       <div className="flex items-center justify-between gap-4">
-        {/* Left Side: Mobile Menu Button & Breadcrumbs */}
+        {/* Left Side: Mobile Menu Button, Asterisk Logo & Breadcrumbs */}
         <div className="flex items-center space-x-3">
           <button
             type="button"
@@ -52,51 +50,58 @@ export const Header: React.FC<HeaderProps> = ({
             <Menu className="w-4 h-4" />
           </button>
 
-          <div className="flex items-center space-x-2 text-xs font-semibold">
-            <span
-              onClick={() => onSelectTab('arena')}
-              className="text-slate-400 hover:text-white transition-colors cursor-pointer hidden sm:inline"
-            >
+          <div
+            onClick={() => onSelectTab('arena')}
+            className="flex items-center space-x-2 cursor-pointer group"
+          >
+            <span className="text-xl text-[#c6f135] font-black group-hover:rotate-45 transition-transform duration-300">
+              ✳
+            </span>
+            <span className="text-base font-black text-white tracking-tight">
               GD Arena
             </span>
-            <span className="text-slate-600 hidden sm:inline">/</span>
-            <span className="text-white font-bold bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">
-              {getTabTitle()}
-            </span>
           </div>
+
+          <span className="text-slate-600 hidden sm:inline">/</span>
+
+          <span className="hidden sm:inline-block text-[11px] font-bold text-[#c6f135] bg-[#c6f135]/10 px-2.5 py-0.5 rounded-full border border-[#c6f135]/20 font-mono">
+            {getTabTitle()}
+          </span>
         </div>
 
         {/* Center Pill: Live Audio Subsystem Status */}
-        <div className="hidden lg:flex items-center space-x-2 px-3 py-1 rounded-full glass-pill border border-white/10 text-[11px] text-slate-300 font-medium">
-          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400" />
-          <span>Local Voice Engine: SpeechSynthesis & Web Speech API</span>
+        <div className="hidden lg:flex items-center space-x-2 px-3.5 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] text-slate-300 font-medium">
+          <div className="w-2 h-2 rounded-full bg-[#c6f135] animate-pulse shadow-sm shadow-[#c6f135]" />
+          <span>Autonomous Multi-Agent Voice Engine</span>
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2.5">
           {activeTab !== 'arena' && (
             <button
               type="button"
               onClick={() => onSelectTab('arena')}
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white font-bold text-xs shadow-lg shadow-brand-500/20 flex items-center space-x-1.5 transition-all cursor-pointer"
+              className="btn-video-pill cursor-pointer"
             >
-              <Mic className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Start GD</span>
+              <div className="btn-video-pill-icon">
+                <Mic className="w-3.5 h-3.5" />
+              </div>
+              <span>Enter Arena</span>
             </button>
           )}
 
           <button
             type="button"
             onClick={onToggleDebug}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all cursor-pointer ${
               isDebugOpen
-                ? 'bg-brand-600 text-white border-brand-400 shadow-md shadow-brand-500/40'
+                ? 'bg-[#c6f135] text-black border-[#c6f135] shadow-md shadow-[#c6f135]/30'
                 : 'glass-pill hover:bg-white/10 border-white/10 text-slate-300'
             }`}
             title="Toggle Engine Inspector (` key)"
           >
             <Terminal className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Debugger</span>
+            <span className="hidden md:inline font-mono">Debugger</span>
           </button>
         </div>
       </div>

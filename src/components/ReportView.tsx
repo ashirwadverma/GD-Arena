@@ -122,7 +122,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ report, onRestart }) => 
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 4.0) return 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10';
+    if (score >= 4.0) return 'text-[#c6f135] border-[#c6f135]/40 bg-[#c6f135]/10';
     if (score >= 3.0) return 'text-amber-400 border-amber-500/40 bg-amber-500/10';
     return 'text-rose-400 border-rose-500/40 bg-rose-500/10';
   };
@@ -130,40 +130,40 @@ export const ReportView: React.FC<ReportViewProps> = ({ report, onRestart }) => 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4 space-y-8 animate-fade-in">
       {/* Top Header Card */}
-      <div className="bg-surface-200 border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -z-10 pointer-events-none" />
+      <div className="glass-card border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl -z-10 pointer-events-none" />
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
+          <div className="space-y-2.5 max-w-2xl">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-xs font-semibold">
-                <ShieldCheck className="w-3.5 h-3.5 text-brand-emerald" />
-                <span>Evidence-Verified Placement Assessment</span>
-              </div>
+              <span className="section-tag">
+                <ShieldCheck className="w-3.5 h-3.5 mr-1.5 text-[#c6f135]" />
+                [ VERIFIED PLACEMENT EVALUATION ]
+              </span>
               {report.candidateRole && report.candidateRole !== 'none' && (
-                <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-semibold">
-                  <UserCheck className="w-3.5 h-3.5" />
-                  <span>Role: {CANDIDATE_ROLES[report.candidateRole]?.title || report.candidateRole}</span>
-                </div>
+                <span className="section-tag text-purple-300 border-purple-500/30 bg-purple-950/40">
+                  <UserCheck className="w-3.5 h-3.5 mr-1" />
+                  [ ROLE: {CANDIDATE_ROLES[report.candidateRole]?.title.toUpperCase() || report.candidateRole.toUpperCase()} ]
+                </span>
               )}
             </div>
-            <h1 className="text-2xl md:text-3xl font-black text-white leading-tight">
+            <h1 className="text-2xl md:text-3xl font-black text-white leading-tight tracking-tight">
               &ldquo;{report.topic}&rdquo;
             </h1>
-            <p className="text-sm font-semibold text-brand-300 flex items-center space-x-2">
-              <Sparkles className="w-4 h-4 text-brand-accent" />
+            <p className="text-sm font-semibold text-slate-300 flex items-center space-x-2">
+              <Sparkles className="w-4 h-4 text-[#c6f135]" />
               <span>{overallVerdict}</span>
             </p>
           </div>
 
           {/* Score Badge Card */}
-          <div className="flex items-center space-x-4 bg-surface-100/90 border border-white/10 p-5 rounded-2xl shrink-0">
+          <div className="flex items-center space-x-4 bg-black/60 border border-white/10 p-5 rounded-2xl shrink-0">
             <div className="text-center">
-              <div className="text-3xl md:text-4xl font-black bg-gradient-to-r from-brand-300 via-white to-brand-accent bg-clip-text text-transparent">
+              <div className="text-3xl md:text-4xl font-black text-[#c6f135]">
                 {overallScore.toFixed(1)}
               </div>
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                Overall Score / 5.0
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">
+                OVERALL / 5.0
               </span>
             </div>
 
@@ -171,9 +171,11 @@ export const ReportView: React.FC<ReportViewProps> = ({ report, onRestart }) => 
 
             <button
               onClick={onRestart}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white text-xs font-bold shadow-lg shadow-brand-500/20 flex items-center space-x-1.5 transition-all cursor-pointer"
+              className="btn-video-pill text-xs px-5 py-2.5 cursor-pointer inline-flex items-center space-x-2"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <div className="btn-video-pill-icon w-5 h-5 text-[10px]">
+                ↺
+              </div>
               <span>Practise Again</span>
             </button>
           </div>
@@ -185,7 +187,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ report, onRestart }) => 
             onClick={() => setActiveTab('feedback')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'feedback'
-                ? 'bg-brand-600 text-white shadow'
+                ? 'bg-[#c6f135] text-black shadow-md shadow-[#c6f135]/20'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -195,7 +197,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ report, onRestart }) => 
             onClick={() => setActiveTab('stats')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'stats'
-                ? 'bg-brand-600 text-white shadow'
+                ? 'bg-[#c6f135] text-black shadow-md shadow-[#c6f135]/20'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -205,7 +207,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ report, onRestart }) => 
             onClick={() => setActiveTab('transcript')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'transcript'
-                ? 'bg-brand-600 text-white shadow'
+                ? 'bg-[#c6f135] text-black shadow-md shadow-[#c6f135]/20'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -213,6 +215,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ report, onRestart }) => 
           </button>
         </div>
       </div>
+
 
       {/* B4: BEFORE-AND-AFTER PROGRESS DELTA CARD */}
       {FEATURES.enableBeforeAfterProgress && (

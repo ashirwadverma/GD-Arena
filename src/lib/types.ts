@@ -16,7 +16,11 @@ export interface Persona {
   openingLine?: string;
   tagline: string;
   cannedLines: string[];
+  photoUrl?: string;
+  specialty?: string;
+  acousticHz?: string;
 }
+
 
 export type DiscussionPhase = 'PREP' | 'OPENING' | 'DISCUSSION' | 'CLOSING_ROUND' | 'ENDED';
 

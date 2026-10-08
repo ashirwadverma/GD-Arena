@@ -6,6 +6,7 @@ import { DIFFICULTY_PRESETS } from '@/lib/difficulties';
 import { CANDIDATE_ROLES } from '@/lib/roles';
 import { CASE_STUDIES } from '@/lib/case-studies';
 import { FEATURES } from '@/config/features';
+import { SoundFrequencyAnalyzer } from '@/components/SoundFrequencyAnalyzer';
 import {
   Sparkles,
   Users,
@@ -28,7 +29,10 @@ import {
   Gauge,
   Briefcase,
   HelpCircle,
+  Radio,
 } from 'lucide-react';
+
+
 
 interface SetupScreenProps {
   onStartRoom: (config: {
@@ -234,8 +238,105 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStartRoom }) => {
           </div>
         </div>
 
+        {/* SECTION: LIVE SOUND FREQUENCY ANALYZER (ACOUSTIC CALIBRATION) */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="section-tag">[ 00 · LIVE VOCAL ACOUSTICS & FREQUENCY SPECTRUM ]</span>
+            <span className="text-[11px] text-[#c6f135] font-mono font-bold flex items-center space-x-1.5">
+              <Radio className="w-3.5 h-3.5 animate-pulse" />
+              <span>REAL-TIME FFT 512 HARMONIC ANALYZER</span>
+            </span>
+          </div>
+          <SoundFrequencyAnalyzer embedded={true} />
+        </div>
+
+        {/* SECTION: AI PARTICIPANT PHOTO ROSTER (BEFORE STARTING AI) */}
+        <div className="glass-card rounded-3xl p-6 sm:p-8 border border-white/10 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <span className="section-tag">[ ACTIVE AI PARTICIPANT ROSTER · 6 PERSONAS ]</span>
+              <h3 className="text-xl font-black text-white tracking-tight">Meet Your Evaluators & Peer Debaters</h3>
+            </div>
+            <div className="flex items-center space-x-2 text-xs font-mono text-slate-400">
+              <span className="w-2 h-2 rounded-full bg-[#c6f135] animate-ping" />
+              <span>Voice Synthesis Ready · Web Audio Engine</span>
+            </div>
+          </div>
+
+          {/* Photo Roster Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {Object.values(PERSONAS).map((p) => {
+              const isIncludedInCurrentPanel =
+                p.id === 'dr_nair' ||
+                (p.id === 'arjun') ||
+                (p.id === 'meera') ||
+                (p.id === 'kabir') ||
+                (p.id === 'sana' && panelSize >= 4) ||
+                (p.id === 'rohan' && panelSize >= 5);
+
+              return (
+                <div
+                  key={p.id}
+                  className={`group relative rounded-2xl overflow-hidden border transition-all duration-300 flex flex-col justify-between ${
+                    isIncludedInCurrentPanel
+                      ? 'border-[#c6f135]/40 bg-[#111116] shadow-xl shadow-purple-950/30'
+                      : 'border-white/5 bg-black/40 opacity-40 hover:opacity-90'
+                  }`}
+                >
+                  {/* Photo with Overlay Badge */}
+                  <div className="relative aspect-square w-full overflow-hidden bg-surface-100">
+                    {p.photoUrl ? (
+                      <img
+                        src={p.photoUrl}
+                        alt={p.name}
+                        className="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-500 filter contrast-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-4xl">
+                        {p.avatar}
+                      </div>
+                    )}
+
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
+
+                    {/* Role / Anchor Badge */}
+                    <div className="absolute top-2 left-2">
+                      <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full font-bold shadow-md ${
+                        p.id === 'dr_nair'
+                          ? 'bg-amber-500 text-black'
+                          : 'bg-black/70 text-[#c6f135] border border-[#c6f135]/30'
+                      }`}>
+                        {p.id === 'dr_nair' ? 'MODERATOR' : p.role.toUpperCase()}
+                      </span>
+                    </div>
+
+                    {/* Acoustic Frequency Tag */}
+                    <div className="absolute bottom-2 left-2 right-2">
+                      <div className="text-[9px] font-mono text-slate-300 truncate bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-xs border border-white/10">
+                        {p.acousticHz || '120-200 Hz'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Info Details */}
+                  <div className="p-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-black text-white group-hover:text-[#c6f135] transition-colors">{p.name}</h4>
+                      <span className="text-xs">{p.avatar}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 line-clamp-1 leading-tight font-medium">
+                      {p.specialty || p.tagline}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* MAIN BENTO CONFIGURATION HUB */}
         <div className="glass-card rounded-3xl p-6 sm:p-8 md:p-10 shadow-2xl border border-white/10 backdrop-blur-2xl space-y-10">
+
           {/* BENTO ROW 1: TOPIC CATALOG */}
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -365,14 +466,20 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStartRoom }) => {
               </div>
             </div>
 
-            {/* Persona Avatar Matrix */}
+            {/* Persona Avatar Matrix with Photos */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 pt-1">
               {/* Dr. Nair */}
-              <div className="glass-card p-4 rounded-2xl border border-amber-500/40 text-center space-y-1.5 shadow-lg shadow-amber-500/5 relative">
-                <span className="absolute top-2 right-2 text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">
+              <div className="glass-card p-3 rounded-2xl border border-amber-500/40 text-center space-y-1.5 shadow-lg shadow-amber-500/5 relative overflow-hidden group">
+                <span className="absolute top-2 right-2 text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono z-10">
                   Anchor
                 </span>
-                <div className="text-3xl my-1">{PERSONAS.dr_nair.avatar}</div>
+                <div className="w-12 h-12 mx-auto rounded-xl overflow-hidden border border-amber-500/30 relative">
+                  {PERSONAS.dr_nair.photoUrl ? (
+                    <img src={PERSONAS.dr_nair.photoUrl} alt="Dr. Nair" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-2xl">{PERSONAS.dr_nair.avatar}</div>
+                  )}
+                </div>
                 <h5 className="text-xs font-bold text-amber-300">{PERSONAS.dr_nair.name}</h5>
                 <p className="text-[10px] text-slate-400 line-clamp-1">{PERSONAS.dr_nair.role}</p>
               </div>
@@ -380,9 +487,15 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStartRoom }) => {
               {/* Arjun */}
               <div
                 onClick={() => setPanelSize(Math.max(3, panelSize))}
-                className="glass-card p-4 rounded-2xl border border-white/10 hover:border-[#c6f135]/50 text-center space-y-1.5 cursor-pointer transition-all hover:scale-[1.02]"
+                className="glass-card p-3 rounded-2xl border border-white/10 hover:border-[#c6f135]/50 text-center space-y-1.5 cursor-pointer transition-all hover:scale-[1.02] group"
               >
-                <div className="text-3xl my-1">{PERSONAS.arjun.avatar}</div>
+                <div className="w-12 h-12 mx-auto rounded-xl overflow-hidden border border-white/15 relative">
+                  {PERSONAS.arjun.photoUrl ? (
+                    <img src={PERSONAS.arjun.photoUrl} alt="Arjun" className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                  ) : (
+                    <div className="text-2xl">{PERSONAS.arjun.avatar}</div>
+                  )}
+                </div>
                 <h5 className="text-xs font-bold text-slate-100">{PERSONAS.arjun.name}</h5>
                 <p className="text-[10px] text-slate-400 line-clamp-1">{PERSONAS.arjun.role}</p>
               </div>
@@ -390,9 +503,15 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStartRoom }) => {
               {/* Meera */}
               <div
                 onClick={() => setPanelSize(Math.max(3, panelSize))}
-                className="glass-card p-4 rounded-2xl border border-white/10 hover:border-[#c6f135]/50 text-center space-y-1.5 cursor-pointer transition-all hover:scale-[1.02]"
+                className="glass-card p-3 rounded-2xl border border-white/10 hover:border-[#c6f135]/50 text-center space-y-1.5 cursor-pointer transition-all hover:scale-[1.02] group"
               >
-                <div className="text-3xl my-1">{PERSONAS.meera.avatar}</div>
+                <div className="w-12 h-12 mx-auto rounded-xl overflow-hidden border border-white/15 relative">
+                  {PERSONAS.meera.photoUrl ? (
+                    <img src={PERSONAS.meera.photoUrl} alt="Meera" className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                  ) : (
+                    <div className="text-2xl">{PERSONAS.meera.avatar}</div>
+                  )}
+                </div>
                 <h5 className="text-xs font-bold text-slate-100">{PERSONAS.meera.name}</h5>
                 <p className="text-[10px] text-slate-400 line-clamp-1">{PERSONAS.meera.role}</p>
               </div>
@@ -400,9 +519,15 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStartRoom }) => {
               {/* Kabir */}
               <div
                 onClick={() => setPanelSize(Math.max(3, panelSize))}
-                className="glass-card p-4 rounded-2xl border border-white/10 hover:border-[#c6f135]/50 text-center space-y-1.5 cursor-pointer transition-all hover:scale-[1.02]"
+                className="glass-card p-3 rounded-2xl border border-white/10 hover:border-[#c6f135]/50 text-center space-y-1.5 cursor-pointer transition-all hover:scale-[1.02] group"
               >
-                <div className="text-3xl my-1">{PERSONAS.kabir.avatar}</div>
+                <div className="w-12 h-12 mx-auto rounded-xl overflow-hidden border border-white/15 relative">
+                  {PERSONAS.kabir.photoUrl ? (
+                    <img src={PERSONAS.kabir.photoUrl} alt="Kabir" className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                  ) : (
+                    <div className="text-2xl">{PERSONAS.kabir.avatar}</div>
+                  )}
+                </div>
                 <h5 className="text-xs font-bold text-slate-100">{PERSONAS.kabir.name}</h5>
                 <p className="text-[10px] text-slate-400 line-clamp-1">{PERSONAS.kabir.role}</p>
               </div>
@@ -410,14 +535,20 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStartRoom }) => {
               {/* Sana */}
               <div
                 onClick={() => setPanelSize(panelSize >= 4 ? 3 : 4)}
-                className={`glass-card p-4 rounded-2xl border text-center space-y-1.5 cursor-pointer transition-all hover:scale-[1.02] ${
+                className={`glass-card p-3 rounded-2xl border text-center space-y-1.5 cursor-pointer transition-all hover:scale-[1.02] group ${
                   panelSize >= 4
                     ? 'border-[#c6f135]/60 bg-purple-950/30'
                     : 'border-dashed border-white/10 opacity-40 hover:opacity-80'
                 }`}
                 title="Click to toggle Sana"
               >
-                <div className="text-3xl my-1">{PERSONAS.sana.avatar}</div>
+                <div className="w-12 h-12 mx-auto rounded-xl overflow-hidden border border-white/15 relative">
+                  {PERSONAS.sana.photoUrl ? (
+                    <img src={PERSONAS.sana.photoUrl} alt="Sana" className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                  ) : (
+                    <div className="text-2xl">{PERSONAS.sana.avatar}</div>
+                  )}
+                </div>
                 <h5 className="text-xs font-bold text-slate-100">{PERSONAS.sana.name}</h5>
                 <p className="text-[10px] text-slate-400 line-clamp-1">
                   {panelSize >= 4 ? PERSONAS.sana.role : '+ Add to Panel'}
@@ -427,14 +558,20 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStartRoom }) => {
               {/* Rohan */}
               <div
                 onClick={() => setPanelSize(panelSize >= 5 ? 4 : 5)}
-                className={`glass-card p-4 rounded-2xl border text-center space-y-1.5 cursor-pointer transition-all hover:scale-[1.02] ${
+                className={`glass-card p-3 rounded-2xl border text-center space-y-1.5 cursor-pointer transition-all hover:scale-[1.02] group ${
                   panelSize >= 5
                     ? 'border-[#c6f135]/60 bg-purple-950/30'
                     : 'border-dashed border-white/10 opacity-40 hover:opacity-80'
                 }`}
                 title="Click to toggle Rohan"
               >
-                <div className="text-3xl my-1">{PERSONAS.rohan.avatar}</div>
+                <div className="w-12 h-12 mx-auto rounded-xl overflow-hidden border border-white/15 relative">
+                  {PERSONAS.rohan.photoUrl ? (
+                    <img src={PERSONAS.rohan.photoUrl} alt="Rohan" className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                  ) : (
+                    <div className="text-2xl">{PERSONAS.rohan.avatar}</div>
+                  )}
+                </div>
                 <h5 className="text-xs font-bold text-slate-100">{PERSONAS.rohan.name}</h5>
                 <p className="text-[10px] text-slate-400 line-clamp-1">
                   {panelSize >= 5 ? PERSONAS.rohan.role : '+ Add to Panel'}
@@ -442,6 +579,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStartRoom }) => {
               </div>
             </div>
           </div>
+
 
           {/* BENTO ROW 3: DIFFICULTY PRESETS & ROLE ASSIGNMENT */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-white/5">

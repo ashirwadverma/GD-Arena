@@ -15,9 +15,13 @@ import { ArenaRoom } from '@/components/ArenaRoom';
 import { ReportView } from '@/components/ReportView';
 import { HistoryModal } from '@/components/HistoryModal';
 import { Segment, FeedbackReport, SessionData, PersonaId } from '@/lib/types';
-import { getPanelPersonas } from '@/lib/personas';
 import { saveSessionToDb, getAllSessionsFromDb, deleteSessionFromDb } from '@/lib/db';
+import { getPanelPersonas } from '@/lib/personas';
+import { SoundFrequencyAnalyzer } from '@/components/SoundFrequencyAnalyzer';
 import { Loader2, ShieldCheck, Sparkles } from 'lucide-react';
+
+
+
 
 type AppStep = 'SETUP' | 'PREP' | 'ROOM' | 'REPORT_GENERATING' | 'REPORT_VIEW';
 
@@ -369,6 +373,10 @@ export default function Home() {
           </div>
         </footer>
       </div>
+
+      {/* Global Interactive Sound Frequency Analyzer Widget */}
+      <SoundFrequencyAnalyzer />
     </div>
   );
 }
+

@@ -1,5 +1,7 @@
 export type PersonaId = 'dr_nair' | 'arjun' | 'meera' | 'kabir' | 'sana' | 'rohan';
 
+export type PersonaStance = 'for' | 'against' | 'neutral';
+
 export interface Persona {
   id: PersonaId;
   name: string;
@@ -42,7 +44,8 @@ export type TurnIntent =
   | 'drift'
   | 'invite_student'
   | 'time_check'
-  | 'closing_statement';
+  | 'closing_statement'
+  | 'acknowledge_stance_shift';
 
 export interface Segment {
   id: string;
@@ -59,6 +62,7 @@ export interface Segment {
 export interface BiddingCandidate {
   personaId: PersonaId;
   score: number;
+  wantsToSpeak?: boolean;
   breakdown: {
     talkativeness: number;
     addressedByNameTerm: number;
@@ -83,7 +87,8 @@ export interface DimensionFeedback {
     | 'building_on_others'
     | 'listening_and_synthesis'
     | 'handling_interruptions'
-    | 'ending_strongly';
+    | 'ending_strongly'
+    | 'opening_structure';
   title: string;
   score: number; // 1 to 5
   summary: string;
@@ -96,6 +101,46 @@ export interface MissedOpening {
   afterSegmentId: string;
   context: string;
   suggestion: string;
+}
+
+export interface StudentClaim {
+  id: string;
+  text: string;
+  timestampMs: number;
+}
+
+export type DifficultyPreset = 'friendly' | 'realistic' | 'tough' | 'slow';
+
+export interface DifficultyConfig {
+  id: DifficultyPreset;
+  label: string;
+  tagline: string;
+  badgeColor: string;
+  dominatorCutInChance: number;
+  jitter: number;
+  consecutiveAiTurnCap: number;
+  challengeWeight: number;
+  defaultPatienceMs: number;
+  aiTurnMaxWords: number;
+}
+
+export type CandidateRole = 'none' | 'first_speaker' | 'contrarian' | 'summarizer';
+
+export interface RoleConfig {
+  id: CandidateRole;
+  title: string;
+  description: string;
+  badge: string;
+  strategyTip: string;
+}
+
+export interface CaseStudyScenario {
+  id: string;
+  title: string;
+  company: string;
+  scenario: string;
+  promptQuestion: string;
+  options: string[];
 }
 
 export interface SessionStats {
@@ -122,6 +167,14 @@ export interface SessionStats {
   }[];
 }
 
+export interface PerformanceDelta {
+  talkShareDeltaPct: number;
+  wpmDelta: number;
+  fillerPerMinDelta: number;
+  firstEntryDeltaSeconds: number;
+  overallScoreDelta: number;
+}
+
 export interface FeedbackReport {
   id: string;
   sessionId: string;
@@ -134,6 +187,14 @@ export interface FeedbackReport {
   missedOpenings: MissedOpening[];
   top3Actions: string[];
   transcript: Segment[];
+  candidateRole?: CandidateRole;
+  difficultyPreset?: DifficultyPreset;
+  structureCheck?: {
+    followedThreePillars: boolean;
+    feedback: string;
+    evidenceQuote?: string;
+  };
+  deltaVsPrevious?: PerformanceDelta;
 }
 
 export interface SessionData {
@@ -145,6 +206,9 @@ export interface SessionData {
   durationSeconds: number;
   patienceMs: number;
   typingMode: boolean;
+  difficulty?: DifficultyPreset;
+  candidateRole?: CandidateRole;
+  caseStudyId?: string;
   segments: Segment[];
   stats?: SessionStats;
   report?: FeedbackReport;

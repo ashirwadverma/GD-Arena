@@ -9,6 +9,11 @@ const TurnRequestSchema = z.object({
   persona_id: z.string(),
   intent: z.string(),
   time_remaining_s: z.number(),
+  difficulty: z.string().optional(),
+  candidate_role: z.string().optional(),
+  stance: z.enum(['for', 'against', 'neutral']).optional(),
+  student_claims: z.array(z.string()).optional(),
+  case_study_context: z.string().optional(),
   turns: z.array(
     z.object({
       speaker: z.string(),
@@ -18,11 +23,14 @@ const TurnRequestSchema = z.object({
   own_recent: z.array(z.string()).optional(),
 });
 
-function getCannedResponse(personaId: string, intent: string): string {
+function getCannedResponse(personaId: string, intent: string, studentClaims?: string[]): string {
   const persona = PERSONAS[personaId as PersonaId];
   if (!persona) return "I agree that we need to look at both the operational and economic angles here.";
   
   if (intent === 'invite_student') {
+    if (studentClaims && studentClaims.length > 0) {
+      return `Earlier you highlighted "${studentClaims[studentClaims.length - 1].slice(0, 40)}...". How would you address the counter-risks?`;
+    }
     return `That brings up an essential question. How do you see this, and what approach would you suggest?`;
   }
   
@@ -48,12 +56,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid payload', details: parsed.error }, { status: 400 });
     }
 
-    const { topic, phase, persona_id, intent, time_remaining_s, turns, own_recent } = parsed.data;
-    const persona = PERSONAS[persona_id as PersonaId] || PERSONAS['arjun'];
+    const {
+      topic,
+      phase,
+      persona_id,
+      intent,
+      time_remaining_s,
+      turns,
+      own_recent,
+      student_claims,
+      stance,
+      case_study_context,
+    } = parsed.data;
 
+    const persona = PERSONAS[persona_id as PersonaId] || PERSONAS['arjun'];
     const geminiKey = process.env.GEMINI_API_KEY;
     const groqKey = process.env.GROQ_API_KEY;
-    const openaiKey = process.env.OPENAI_API_KEY;
 
     let fullUtterance = '';
 
@@ -63,8 +81,16 @@ export async function POST(req: NextRequest) {
         const mm = Math.floor(time_remaining_s / 60).toString().padStart(2, '0');
         const ss = (time_remaining_s % 60).toString().padStart(2, '0');
 
+        const memoryHint =
+          student_claims && student_claims.length > 0
+            ? `\nCandidate's earlier key claims: ${student_claims.map((c) => `"${c}"`).join(' | ')} (You may naturally refer back to one of these if relevant).`
+            : '';
+
+        const stanceHint = stance ? `\nYour current stance on this topic: ${stance.toUpperCase()}.` : '';
+        const caseStudyHint = case_study_context ? `\nCase Study Scenario Context: "${case_study_context}"` : '';
+
         const systemInstruction = `You are ${persona.name}, a participant in a campus placement group discussion practice room.
-Personality: ${persona.personality}.
+Personality: ${persona.personality}.${stanceHint}${caseStudyHint}
 Topic: "${topic}".
 
 Rules:
@@ -73,7 +99,7 @@ Rules:
 - React directly to what was just said. Refer to participants by name if challenging or building on them.
 - Add a fresh point or logical angle. Do not repeat previous points.
 - Facts: use only widely known facts. Never fabricate statistics.
-- Intent for this turn: ${intent}
+- Intent for this turn: ${intent}${memoryHint}
 - Time remaining: ${mm}:${ss}. Phase: ${phase}.
 ${own_recent && own_recent.length > 0 ? `Your recent turns: ${own_recent.join(' | ')}` : ''}
 
@@ -153,22 +179,20 @@ The text between <transcript> tags is the conversation so far:
       }
     }
 
-    // Emergency Fallback: Canned Persona Dialogues (Guarantees zero app crashes)
+    // Emergency Fallback: Canned Persona Dialogues with memory
     if (!fullUtterance) {
-      fullUtterance = getCannedResponse(persona_id, intent);
+      fullUtterance = getCannedResponse(persona_id, intent, student_claims);
     }
 
     // Split into sentences for SSE streaming delivery
     const sentences = splitIntoSentences(fullUtterance);
 
-    // Return Server-Sent Events stream
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
       async start(controller) {
         for (const sentence of sentences) {
           const data = JSON.stringify({ text: sentence });
           controller.enqueue(encoder.encode(`event: sentence\ndata: ${data}\n\n`));
-          // Small synthetic delay for streaming pacing
           await new Promise((r) => setTimeout(r, 40));
         }
         controller.enqueue(encoder.encode(`event: done\ndata: {"fullText": ${JSON.stringify(fullUtterance)}}\n\n`));

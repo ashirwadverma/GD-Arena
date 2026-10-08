@@ -26,6 +26,9 @@ export default function Home() {
   const [panelSize, setPanelSize] = useState<number>(4);
   const [durationMinutes, setDurationMinutes] = useState<number>(2);
   const [patienceMs, setPatienceMs] = useState<number>(1200);
+  const [difficulty, setDifficulty] = useState<any>('realistic');
+  const [candidateRole, setCandidateRole] = useState<any>('none');
+  const [caseStudyId, setCaseStudyId] = useState<string | undefined>(undefined);
   const [useTypingMode, setUseTypingMode] = useState<boolean>(false);
 
   // Report State
@@ -48,12 +51,18 @@ export default function Home() {
     durationMinutes: number;
     patienceMs: number;
     useTypingMode: boolean;
+    difficulty: any;
+    candidateRole: any;
+    caseStudyId?: string;
   }) => {
     setTopic(config.topic);
     setPanelSize(config.panelSize);
     setDurationMinutes(config.durationMinutes);
     setPatienceMs(config.patienceMs);
     setUseTypingMode(config.useTypingMode);
+    setDifficulty(config.difficulty);
+    setCandidateRole(config.candidateRole);
+    setCaseStudyId(config.caseStudyId);
     setCurrentStep('PREP');
   };
 
@@ -75,6 +84,9 @@ export default function Home() {
           topic,
           duration_s: totalDurationSeconds,
           segments,
+          candidateRole,
+          difficulty,
+          caseStudyId,
         }),
       });
 
@@ -96,6 +108,9 @@ export default function Home() {
         durationSeconds: totalDurationSeconds,
         patienceMs,
         typingMode: useTypingMode,
+        difficulty,
+        candidateRole,
+        caseStudyId,
         segments,
         stats: report.stats,
         report,
@@ -134,7 +149,12 @@ export default function Home() {
         )}
 
         {currentStep === 'PREP' && (
-          <PrepScreen topic={topic} onFinishPrep={handleFinishPrep} />
+          <PrepScreen
+            topic={topic}
+            candidateRole={candidateRole}
+            caseStudyId={caseStudyId}
+            onFinishPrep={handleFinishPrep}
+          />
         )}
 
         {currentStep === 'ROOM' && (
@@ -143,6 +163,9 @@ export default function Home() {
             panelSize={panelSize}
             durationMinutes={durationMinutes}
             patienceMs={patienceMs}
+            difficulty={difficulty}
+            candidateRole={candidateRole}
+            caseStudyId={caseStudyId}
             useTypingMode={useTypingMode}
             onFinishDiscussion={handleFinishDiscussion}
             onLeave={() => setCurrentStep('SETUP')}

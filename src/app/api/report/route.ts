@@ -7,6 +7,9 @@ import { DimensionFeedback, FeedbackReport, Segment } from '@/lib/types';
 const ReportRequestSchema = z.object({
   topic: z.string(),
   duration_s: z.number(),
+  candidateRole: z.enum(['none', 'first_speaker', 'contrarian', 'summarizer']).optional(),
+  difficulty: z.enum(['friendly', 'realistic', 'tough', 'slow']).optional(),
+  caseStudyId: z.string().optional(),
   segments: z.array(
     z.object({
       id: z.string(),
@@ -24,13 +27,19 @@ const ReportRequestSchema = z.object({
 function generateLocalEvidenceReport(
   topic: string,
   segments: Segment[],
-  stats: any
+  stats: any,
+  candidateRole?: string
 ): {
   overallScore: number;
   overallVerdict: string;
   dimensions: DimensionFeedback[];
   missedOpenings: any[];
   top3Actions: string[];
+  structureCheck?: {
+    followedThreePillars: boolean;
+    feedback: string;
+    evidenceQuote?: string;
+  };
 } {
   const userSegments = segments.filter((s) => s.speakerId === 'user');
   const userTurnCount = userSegments.length;
@@ -55,6 +64,21 @@ function generateLocalEvidenceReport(
   const listenScore = stats.longestSilenceSeconds < 90 && userTurnCount >= 2 ? 4 : 3;
   const interruptScore = stats.studentInterruptedAiCount <= 2 ? 4 : 3;
   const endScore = userSegments.length >= 3 ? 4 : 3;
+
+  // B2: Structure check for first speech
+  const firstTurnText = userSegments[0]?.text?.toLowerCase() || '';
+  const hasDefinition = firstTurnText.includes('mean') || firstTurnText.includes('topic') || firstTurnText.includes('define') || firstTurnText.length > 25;
+  const hasStance = firstTurnText.includes('believe') || firstTurnText.includes('think') || firstTurnText.includes('view') || firstTurnText.includes('favor') || firstTurnText.includes('against');
+  const hasPillars = firstTurnText.includes('first') || firstTurnText.includes('second') || firstTurnText.includes('aspect') || firstTurnText.includes('hand') || firstTurnText.includes('because');
+  const followedFormula = (hasDefinition && hasStance) || (hasStance && hasPillars) || firstTurnText.length > 60;
+
+  const structureCheck = {
+    followedThreePillars: followedFormula,
+    feedback: followedFormula
+      ? 'Well structured opening! You anchored the topic definition, declared your stance, and outlined reasoning pillars clearly.'
+      : 'In your first speech, remember the 3-step formula: 1) Define the topic scope, 2) Declare your stance, and 3) Preview 2 core points.',
+    evidenceQuote: userSegments[0]?.text?.slice(0, 100),
+  };
 
   const totalScore = Math.round(
     ((initiateScore + ideaScore + buildScore + listenScore + interruptScore + endScore) / 6) * 10
@@ -156,7 +180,7 @@ function generateLocalEvidenceReport(
     {
       afterSegmentId: segments[1]?.id || 's_1',
       context: 'When Arjun strongly emphasized operational speed over long-term security.',
-      suggestion: 'You could have stepped in with: "While Arjun has a point on speed, without a compliance baseline, early gains evaporate quickly."',
+      suggestion: 'While Arjun has a point on speed, without a compliance baseline, early gains evaporate quickly.',
     },
   ];
 
@@ -177,6 +201,7 @@ function generateLocalEvidenceReport(
     dimensions,
     missedOpenings,
     top3Actions,
+    structureCheck,
   };
 }
 
@@ -189,14 +214,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid payload', details: parsed.error }, { status: 400 });
     }
 
-    const { topic, duration_s, segments } = parsed.data;
+    const { topic, duration_s, segments, candidateRole, difficulty, caseStudyId } = parsed.data;
     const typedSegments = segments as Segment[];
 
     // Calculate Layer 1 deterministic statistics instantly
     const sessionStart = typedSegments.length > 0 ? typedSegments[0].startMs : Date.now() - duration_s * 1000;
     const stats = calculateSessionStats(typedSegments, duration_s, sessionStart);
 
-    let reportData = generateLocalEvidenceReport(topic, typedSegments, stats);
+    let reportData = generateLocalEvidenceReport(topic, typedSegments, stats, candidateRole);
 
     // Call Gemini for structured evaluation if API key exists
     const geminiKey = process.env.GEMINI_API_KEY;
@@ -206,8 +231,13 @@ export async function POST(req: NextRequest) {
           .map((s) => `[Segment ID: ${s.id}] ${s.speakerName}: "${s.text}"`)
           .join('\n');
 
+        const roleContext = candidateRole && candidateRole !== 'none'
+          ? `The candidate was assigned the role: ${candidateRole}. Assess how well they fulfilled this role.`
+          : '';
+
         const prompt = `You are a Senior Placement Director and expert Group Discussion evaluator.
 Evaluate the candidate ("You") based on this actual campus GD transcript on the topic: "${topic}".
+${roleContext}
 
 MANDATORY RULES:
 1. Every evidence item MUST contain an EXACT literal substring from a segment spoken by "You". Never invent or rephrase quotes.
@@ -232,6 +262,11 @@ Return pure JSON matching this schema:
       "evidence": [{ "segmentId": string, "quote": string, "note": string }]
     }
   ],
+  "structureCheck": {
+    "followedThreePillars": boolean,
+    "feedback": string,
+    "evidenceQuote": string
+  },
   "missedOpenings": [
     { "afterSegmentId": string, "context": string, "suggestion": string }
   ],
@@ -259,7 +294,10 @@ Return pure JSON matching this schema:
           if (jsonText) {
             const parsedReport = JSON.parse(jsonText);
             if (parsedReport.dimensions && parsedReport.dimensions.length === 6) {
-              reportData = parsedReport;
+              reportData = {
+                ...reportData,
+                ...parsedReport,
+              };
             }
           }
         }
@@ -283,6 +321,9 @@ Return pure JSON matching this schema:
       missedOpenings: reportData.missedOpenings || [],
       top3Actions: reportData.top3Actions || [],
       transcript: typedSegments,
+      candidateRole: candidateRole as any,
+      difficultyPreset: difficulty as any,
+      structureCheck: reportData.structureCheck,
     };
 
     return NextResponse.json(fullReport);

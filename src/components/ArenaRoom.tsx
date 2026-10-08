@@ -6,9 +6,20 @@ import {
   createInitialContext,
   calculateBids,
   selectNextAiSpeaker,
+  extractStudentClaims,
 } from '@/lib/state-machine';
-import { PersonaId, Segment, DiscussionPhase, FloorState } from '@/lib/types';
+import {
+  PersonaId,
+  Segment,
+  DiscussionPhase,
+  FloorState,
+  DifficultyPreset,
+  CandidateRole,
+  PersonaStance,
+} from '@/lib/types';
 import { PERSONAS } from '@/lib/personas';
+import { DIFFICULTY_PRESETS } from '@/lib/difficulties';
+import { CASE_STUDIES } from '@/lib/case-studies';
 import { SpeechManager } from '@/lib/stt';
 import { TTSManager } from '@/lib/tts';
 import { ParticipantCard } from './ParticipantCard';
@@ -16,6 +27,8 @@ import { LiveCaptions } from './LiveCaptions';
 import { RealTimeNudge } from './RealTimeNudge';
 import { TypingInputBar } from './TypingInputBar';
 import { DebugOverlay } from './DebugOverlay';
+import { LiveConfidenceMeter } from './LiveConfidenceMeter';
+import { calculateSessionStats } from '@/lib/stats';
 import {
   Clock,
   Mic,
@@ -24,13 +37,18 @@ import {
   Volume2,
   Award,
   Sparkles,
+  BookOpen,
 } from 'lucide-react';
+import { FEATURES } from '@/config/features';
 
 interface ArenaRoomProps {
   topic: string;
   panelSize: number;
   durationMinutes: number;
   patienceMs: number;
+  difficulty?: DifficultyPreset;
+  candidateRole?: CandidateRole;
+  caseStudyId?: string;
   useTypingMode: boolean;
   onFinishDiscussion: (segments: Segment[], totalDurationSeconds: number) => void;
   onLeave: () => void;
@@ -43,6 +61,9 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
   panelSize,
   durationMinutes,
   patienceMs,
+  difficulty = 'realistic',
+  candidateRole = 'none',
+  caseStudyId,
   useTypingMode,
   onFinishDiscussion,
   onLeave,
@@ -50,11 +71,19 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
   onToggleDebug,
 }) => {
   const totalSeconds = durationMinutes * 60;
+  const diffConfig = DIFFICULTY_PRESETS[difficulty] || DIFFICULTY_PRESETS.realistic;
+  const caseStudy = caseStudyId ? CASE_STUDIES.find((c) => c.id === caseStudyId) : null;
+
   const [secondsRemaining, setSecondsRemaining] = useState<number>(totalSeconds);
   const [phase, setPhase] = useState<DiscussionPhase>('OPENING');
   const [floorState, setFloorState] = useState<FloorState>('MODERATOR_OPENING');
   const [currentSpeakerId, setCurrentSpeakerId] = useState<PersonaId | 'user' | null>('dr_nair');
-  const [activeCaption, setActiveCaption] = useState<{ speakerName: string; text: string; isInterim?: boolean; isUser?: boolean }>({
+  const [activeCaption, setActiveCaption] = useState<{
+    speakerName: string;
+    text: string;
+    isInterim?: boolean;
+    isUser?: boolean;
+  }>({
     speakerName: 'Dr. Nair (Moderator)',
     text: 'Good day everyone. Let us commence the discussion...',
   });
@@ -66,8 +95,20 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
   const [showVolumeSlider, setShowVolumeSlider] = useState<boolean>(false);
   const [userMicVolume, setUserMicVolume] = useState<number>(0);
 
+  // A4: Live Stance State
+  const [stances, setStances] = useState<Record<PersonaId, PersonaStance>>({
+    dr_nair: 'neutral',
+    arjun: 'against',
+    meera: 'neutral',
+    kabir: 'neutral',
+    sana: 'for',
+    rohan: 'neutral',
+  });
+
   // Engine references
-  const contextRef = useRef<FloorContext>(createInitialContext(topic, panelSize, patienceMs));
+  const contextRef = useRef<FloorContext>(
+    createInitialContext(topic, panelSize, patienceMs, difficulty)
+  );
   const sttRef = useRef<SpeechManager | null>(null);
   const ttsRef = useRef<TTSManager | null>(null);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -90,7 +131,10 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
     contextRef.current.currentSpeakerId = currentSpeakerId;
     contextRef.current.segments = segments;
     contextRef.current.patienceMs = patienceMs;
-  }, [phase, floorState, currentSpeakerId, segments, patienceMs]);
+    contextRef.current.difficulty = difficulty;
+    contextRef.current.stances = stances;
+    contextRef.current.studentClaims = extractStudentClaims(segments);
+  }, [phase, floorState, currentSpeakerId, segments, patienceMs, difficulty, stances]);
 
   // Initial setup for STT, TTS, and live VAD
   useEffect(() => {
@@ -99,7 +143,6 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
     ttsRef.current = tts;
 
     if (!useTypingMode) {
-      // 1. Initialize SpeechManager
       sttRef.current = new SpeechManager({
         onSpeechStart: () => {
           handleStudentSpeechStart();
@@ -113,14 +156,12 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
         onError: (err) => {
           console.warn('STT Error:', err);
         },
-        onStatusChange: (listening) => {
-          // listening state
-        },
+        onStatusChange: () => {},
       });
 
       sttRef.current.start();
 
-      // 2. Real-time WebAudio Visualizer and VAD Stream
+      // Real-time WebAudio Visualizer and VAD Stream
       if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
         navigator.mediaDevices
           .getUserMedia({ audio: true })
@@ -200,7 +241,6 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
       setSecondsRemaining((prev) => {
         const next = prev - 1;
 
-        // If 1 minute remaining, transition to CLOSING_ROUND
         if (next <= 60 && phase === 'DISCUSSION') {
           setPhase('CLOSING_ROUND');
           triggerModeratorClosing();
@@ -209,7 +249,9 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
         // Silent coaching nudge checks (PRD S2)
         const msSinceLastSpoke = Date.now() - lastUserActivityMsRef.current;
         if (msSinceLastSpoke > 60000 && !nudgeMessage && phase === 'DISCUSSION') {
-          setNudgeMessage('You haven\'t contributed in over a minute. Jump in with a counter-example or synthesize the room!');
+          setNudgeMessage(
+            "You haven't contributed in over a minute. Jump in with a counter-example or synthesize the room!"
+          );
         }
 
         return next;
@@ -223,7 +265,9 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
   const runModeratorOpening = async () => {
     setFloorState('MODERATOR_OPENING');
     setCurrentSpeakerId('dr_nair');
-    const openingText = `Good day everyone, and welcome to this group discussion. Our topic today is: "${topic}". We have ${durationMinutes} minutes. Please be structured, build constructively, and respect each other. Who would like to open the floor?`;
+
+    const caseContext = caseStudy ? ` We are resolving the case of ${caseStudy.company}: ${caseStudy.promptQuestion}.` : '';
+    const openingText = `Good day everyone, and welcome to this group discussion. Our topic today is: "${topic}".${caseContext} We have ${durationMinutes} minutes. Please maintain decorum, build constructively, and respect each other. Who would like to open the floor?`;
 
     setActiveCaption({
       speakerName: 'Dr. Nair (Moderator)',
@@ -259,7 +303,7 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
     });
   };
 
-  // 2. Dead air filler timer (PRD 6.2 rule 6: if 5-6s nobody speaks, highest bidder fills gap)
+  // 2. Dead air filler timer
   const resetDeadAirTimer = useCallback(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     silenceTimerRef.current = setTimeout(() => {
@@ -269,17 +313,15 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
     }, 5500);
   }, []);
 
-  // 3. BARGE-IN: Student starts speaking (stops AI audio immediately)
+  // 3. BARGE-IN: Student starts speaking
   const handleStudentSpeechStart = () => {
     lastUserActivityMsRef.current = Date.now();
     setNudgeMessage(null);
 
-    // If an AI was speaking, interrupt immediately
     if (contextRef.current.state === 'AI_SPEAKING' || contextRef.current.state === 'AI_THINKING') {
       ttsRef.current?.stopAll();
       contextRef.current.abortController?.abort();
 
-      // Mark previous AI segment as interrupted
       setSegments((prev) => {
         if (prev.length === 0) return prev;
         const copy = [...prev];
@@ -309,7 +351,6 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
       isUser: true,
     });
 
-    // Reset end-of-turn patience timer
     if (endOfTurnTimerRef.current) clearTimeout(endOfTurnTimerRef.current);
     endOfTurnTimerRef.current = setTimeout(() => {
       finalizeStudentTurn(currentUtteranceBufferRef.current);
@@ -332,7 +373,7 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
     }, patienceMs);
   };
 
-  // 6. Finalize student turn into transcript and trigger AI response
+  // 6. Finalize student turn & update stance shift
   const finalizeStudentTurn = (text: string) => {
     const cleanText = text.trim();
     if (!cleanText || cleanText.length < 2) {
@@ -357,13 +398,27 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
 
     setSegments((prev) => [...prev, newSegment]);
     contextRef.current.lastSpeakerId = 'user';
-    contextRef.current.consecutiveAiTurns = 0; // Reset consecutive AI turns
+    contextRef.current.consecutiveAiTurns = 0;
+
+    // A4: Stance shift heuristic (If student gave a structured point > 25 words naming an AI, shift that AI's stance toward consensus)
+    if (FEATURES.enableStanceTracking && cleanText.split(/\s+/).length > 20) {
+      if (/meera|arjun|kabir|sana|rohan/i.test(cleanText)) {
+        setStances((prev) => {
+          const updated = { ...prev };
+          if (cleanText.toLowerCase().includes('arjun') && updated.arjun === 'against') {
+            updated.arjun = 'neutral';
+          } else if (cleanText.toLowerCase().includes('meera') && updated.meera === 'neutral') {
+            updated.meera = 'for';
+          }
+          return updated;
+        });
+      }
+    }
 
     currentUtteranceBufferRef.current = '';
     setFloorState('LIVE_IDLE');
     setCurrentSpeakerId(null);
 
-    // AI reacts to student turn
     setTimeout(() => {
       triggerNextAiTurn();
     }, 400);
@@ -373,7 +428,8 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
   const triggerNextAiTurn = async () => {
     if (contextRef.current.state === 'STUDENT_SPEAKING') return;
 
-    if (contextRef.current.consecutiveAiTurns >= 2) {
+    const cap = diffConfig.consecutiveAiTurnCap || 2;
+    if (contextRef.current.consecutiveAiTurns >= cap) {
       resetDeadAirTimer();
     }
 
@@ -389,6 +445,7 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
 
     try {
       const startTime = performance.now();
+      const studentClaims = extractStudentClaims(contextRef.current.segments).map((c) => c.text);
 
       const res = await fetch('/api/turn', {
         method: 'POST',
@@ -400,6 +457,11 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
           persona_id: speakerId,
           intent,
           time_remaining_s: secondsRemaining,
+          difficulty,
+          candidate_role: candidateRole,
+          stance: stances[speakerId] || 'neutral',
+          student_claims: studentClaims,
+          case_study_context: caseStudy ? caseStudy.scenario : undefined,
           turns: contextRef.current.segments.slice(-10).map((s) => ({
             speaker: s.speakerName,
             text: s.text,
@@ -459,7 +521,6 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
         }
       }
 
-      // Record final segment
       if (fullText) {
         const seg: Segment = {
           id: `seg_${Date.now()}`,
@@ -473,9 +534,11 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
         setSegments((prev) => [...prev, seg]);
       }
 
-      // Schedule next action when speech completes
       setTimeout(() => {
-        if (contextRef.current.state === 'AI_SPEAKING' && contextRef.current.currentSpeakerId === speakerId) {
+        if (
+          contextRef.current.state === 'AI_SPEAKING' &&
+          contextRef.current.currentSpeakerId === speakerId
+        ) {
           setFloorState('LIVE_IDLE');
           setCurrentSpeakerId(null);
           sttRef.current?.setAiSpeakingContext('');
@@ -499,7 +562,8 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
     setCurrentSpeakerId('dr_nair');
     setFloorState('CLOSING_ROUND');
 
-    const closingPrompt = 'We have reached the final minute. I invite each candidate to present a 20-second concluding synthesis.';
+    const closingPrompt =
+      'We have reached the final minute. I invite each candidate to present a 20-second concluding synthesis.';
     setActiveCaption({ speakerName: 'Dr. Nair (Moderator)', text: closingPrompt });
 
     ttsRef.current?.enqueue({
@@ -518,27 +582,55 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
     ttsRef.current?.stopAll();
     sttRef.current?.stop();
     setFloorState('ENDED');
-    onFinishDiscussion(contextRef.current.segments, totalSeconds - secondsRemaining || totalSeconds);
+    onFinishDiscussion(
+      contextRef.current.segments,
+      totalSeconds - secondsRemaining || totalSeconds
+    );
   };
 
   const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const m = Math.floor(secs / 60)
+      .toString()
+      .padStart(2, '0');
     const s = (secs % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
   };
 
+  // Compute live stats for Live Confidence Meter (B1)
+  const sessionStart = segments.length > 0 ? segments[0].startMs : Date.now();
+  const liveStats = calculateSessionStats(
+    segments,
+    Math.max(1, totalSeconds - secondsRemaining),
+    sessionStart
+  );
+
+  // Expose current bidding candidates for A1 wants to speak hand icons & debug overlay
+  const biddingCandidates = calculateBids(contextRef.current);
+  const wantsToSpeakMap = new Map<string, boolean>();
+  biddingCandidates.forEach((b) => {
+    wantsToSpeakMap.set(b.personaId, !!b.wantsToSpeak);
+  });
+
   const activePanelList = contextRef.current.panel;
 
   return (
-    <div className="max-w-6xl mx-auto py-4 px-4 space-y-6 animate-fade-in relative">
+    <div className="max-w-6xl mx-auto py-4 px-4 space-y-5 animate-fade-in relative">
       {/* Top Status & Timer Bar */}
-      <div className="bg-surface-200 border border-white/10 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xl backdrop-blur-md">
-        <div className="space-y-0.5">
+      <div className="glass-card rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xl backdrop-blur-xl border border-white/10">
+        <div className="space-y-1">
           <div className="flex items-center space-x-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-300 border border-brand-500/30">
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-300 border border-brand-500/30">
               {phase} Phase
             </span>
-            <span className="text-xs text-slate-400 font-medium">Topic:</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              {diffConfig.label}
+            </span>
+            {caseStudy && (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center space-x-1">
+                <BookOpen className="w-3 h-3" />
+                <span>Case Study</span>
+              </span>
+            )}
           </div>
           <h2 className="text-sm md:text-base font-bold text-white line-clamp-1">
             {topic}
@@ -556,7 +648,7 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
           {/* Fast-Forward (Judge Demo shortcut) */}
           <button
             onClick={() => setSecondsRemaining(30)}
-            className="px-3 py-1.5 rounded-xl bg-surface-100 hover:bg-surface-50 border border-white/10 text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center space-x-1"
+            className="px-3 py-1.5 rounded-xl glass-pill hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center space-x-1 cursor-pointer"
             title="Fast forward to Closing Round"
           >
             <FastForward className="w-3.5 h-3.5 text-amber-400" />
@@ -575,7 +667,7 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
                   setIsMicMuted(true);
                 }
               }}
-              className={`p-2 rounded-xl border text-xs font-semibold transition-all ${
+              className={`p-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
                 isMicMuted
                   ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
                   : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
@@ -590,7 +682,7 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowVolumeSlider(!showVolumeSlider)}
-              className="p-2 rounded-xl bg-surface-100 hover:bg-surface-50 border border-white/10 text-xs font-semibold text-brand-300 hover:text-white transition-all flex items-center space-x-1"
+              className="p-2 rounded-xl glass-pill hover:bg-white/10 border border-white/10 text-xs font-semibold text-brand-300 hover:text-white transition-all flex items-center space-x-1 cursor-pointer"
               title="Adjust AI Voice Sound Volume"
             >
               <Volume2 className="w-4 h-4 text-brand-400" />
@@ -598,7 +690,7 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
             </button>
 
             {showVolumeSlider && (
-              <div className="absolute right-0 top-12 z-30 p-3.5 rounded-2xl bg-surface-300 border border-brand-500/40 shadow-2xl backdrop-blur-xl w-52 space-y-2">
+              <div className="absolute right-0 top-12 z-30 p-3.5 rounded-2xl glass-card border border-brand-500/40 shadow-2xl backdrop-blur-xl w-52 space-y-2">
                 <div className="flex justify-between text-[11px] font-bold text-slate-200">
                   <span>AI Sound Level</span>
                   <span className="text-brand-300 font-mono">{Math.round(soundVolume * 100)}%</span>
@@ -626,7 +718,7 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
           {/* Finish & Generate Report */}
           <button
             onClick={handleDiscussionEnd}
-            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white text-xs font-bold shadow-md flex items-center space-x-1.5 transition-all"
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white text-xs font-bold shadow-md flex items-center space-x-1.5 transition-all cursor-pointer"
           >
             <Award className="w-3.5 h-3.5" />
             <span>Finish & Report</span>
@@ -634,11 +726,16 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
         </div>
       </div>
 
-      {/* Real-time Coaching Nudge (PRD S2) */}
-      <RealTimeNudge
-        message={nudgeMessage}
-        onDismiss={() => setNudgeMessage(null)}
+      {/* B1: Live Confidence & Delivery Meter */}
+      <LiveConfidenceMeter
+        wpm={liveStats.speakingPaceWpm}
+        talkSharePct={liveStats.userTalkSharePct}
+        fillerCount={liveStats.fillerWordsCount}
+        fillerPerMinute={liveStats.fillerWordsPerMinute}
       />
+
+      {/* Real-time Coaching Nudge (PRD S2) */}
+      <RealTimeNudge message={nudgeMessage} onDismiss={() => setNudgeMessage(null)} />
 
       {/* Live Discussion Grid of Participants */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -649,21 +746,25 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
           isThinking={floorState === 'AI_THINKING' && currentSpeakerId === 'dr_nair'}
         />
 
-        {/* User (Candidate) Card with Live Mic Audio Level */}
+        {/* User (Candidate) Card with Live Mic Audio Level & Role Badge */}
         <ParticipantCard
           id="user"
           isSpeaking={currentSpeakerId === 'user'}
           isMuted={isMicMuted}
           micVolume={userMicVolume}
+          candidateRole={candidateRole}
+          talkSharePct={liveStats.userTalkSharePct}
         />
 
-        {/* AI Panelists */}
+        {/* AI Panelists with A1 Wants to Speak Indicator & A4 Stance Tracking */}
         {activePanelList.map((pId) => (
           <ParticipantCard
             key={pId}
             id={pId}
             isSpeaking={currentSpeakerId === pId}
             isThinking={floorState === 'AI_THINKING' && currentSpeakerId === pId}
+            wantsToSpeak={wantsToSpeakMap.get(pId) || false}
+            stance={stances[pId] || 'neutral'}
           />
         ))}
       </div>
@@ -677,7 +778,7 @@ export const ArenaRoom: React.FC<ArenaRoomProps> = ({
           isUser={activeCaption.isUser}
         />
 
-        {/* Text Input (always available for rapid typing) */}
+        {/* Text Input */}
         <TypingInputBar
           onSendText={(txt) => {
             handleStudentSpeechStart();

@@ -1,9 +1,11 @@
-'use client';
-
 import React, { useState } from 'react';
-import { CURATED_TOPICS, DEFAULT_TOPIC } from '@/lib/topics';
+import { CURATED_TOPICS, DEFAULT_TOPIC, TopicCategoryGroup, TopicItem } from '@/lib/topics';
 import { PERSONAS, getPanelPersonas } from '@/lib/personas';
-import { PersonaId } from '@/lib/types';
+import { CandidateRole, DifficultyPreset, PersonaId } from '@/lib/types';
+import { DIFFICULTY_PRESETS } from '@/lib/difficulties';
+import { CANDIDATE_ROLES } from '@/lib/roles';
+import { CASE_STUDIES } from '@/lib/case-studies';
+import { FEATURES } from '@/config/features';
 import {
   Sparkles,
   Users,
@@ -22,6 +24,10 @@ import {
   TrendingUp,
   Volume2,
   Lock,
+  UserCheck,
+  Gauge,
+  Briefcase,
+  HelpCircle,
 } from 'lucide-react';
 
 interface SetupScreenProps {
@@ -31,6 +37,9 @@ interface SetupScreenProps {
     durationMinutes: number;
     patienceMs: number;
     useTypingMode: boolean;
+    difficulty: DifficultyPreset;
+    candidateRole: CandidateRole;
+    caseStudyId?: string;
   }) => void;
 }
 
@@ -41,7 +50,10 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStartRoom }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [panelSize, setPanelSize] = useState<number>(4);
   const [durationMinutes, setDurationMinutes] = useState<number>(2);
-  const [patienceMs, setPatienceMs] = useState<number>(1200);
+  const [difficulty, setDifficulty] = useState<DifficultyPreset>('realistic');
+  const [patienceMs, setPatienceMs] = useState<number>(DIFFICULTY_PRESETS.realistic.defaultPatienceMs);
+  const [candidateRole, setCandidateRole] = useState<CandidateRole>('none');
+  const [selectedCaseStudyId, setSelectedCaseStudyId] = useState<string | undefined>(undefined);
   const [useTypingMode, setUseTypingMode] = useState<boolean>(false);
   const [moderationError, setModerationError] = useState<string | null>(null);
   const [isCheckingTopic, setIsCheckingTopic] = useState<boolean>(false);
@@ -49,11 +61,16 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStartRoom }) => {
   const activeTopicString = isCustom ? customTopic : selectedTopic;
   const activePanel = getPanelPersonas(panelSize);
 
-  const categories = ['All', ...CURATED_TOPICS.map((c) => c.category)];
-  const filteredTopics =
+  const categories: string[] = ['All', ...CURATED_TOPICS.map((c: TopicCategoryGroup) => c.category)];
+  const filteredTopics: TopicItem[] =
     selectedCategory === 'All'
-      ? CURATED_TOPICS.flatMap((c) => c.topics)
-      : CURATED_TOPICS.find((c) => c.category === selectedCategory)?.topics || [];
+      ? CURATED_TOPICS.flatMap((c: TopicCategoryGroup) => c.topics)
+      : CURATED_TOPICS.find((c: TopicCategoryGroup) => c.category === selectedCategory)?.topics || [];
+
+  const handleDifficultyChange = (newDiff: DifficultyPreset) => {
+    setDifficulty(newDiff);
+    setPatienceMs(DIFFICULTY_PRESETS[newDiff].defaultPatienceMs);
+  };
 
   const handleStart = async () => {
     if (!activeTopicString.trim()) {
@@ -92,6 +109,9 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStartRoom }) => {
       durationMinutes,
       patienceMs,
       useTypingMode,
+      difficulty,
+      candidateRole,
+      caseStudyId: selectedCaseStudyId,
     });
   };
 
@@ -195,7 +215,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStartRoom }) => {
             {/* Topic Grid or Custom Input Box */}
             {!isCustom ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
-                {filteredTopics.map((t) => {
+                {filteredTopics.map((t: TopicItem) => {
                   const isSelected = selectedTopic === t.title;
                   return (
                     <div
@@ -359,13 +379,148 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStartRoom }) => {
             </div>
           </div>
 
-          {/* BENTO ROW 3: INTERACTION MODE & SESSION CONTROLS */}
+          {/* BENTO ROW 3: DIFFICULTY PRESETS & ROLE ASSIGNMENT */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-white/5">
+            {/* A2: Difficulty Presets */}
+            {FEATURES.enableDifficultyPresets && (
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-brand-600 to-brand-accent flex items-center justify-center text-white text-xs font-bold shadow-md shadow-brand-500/20">
+                    3
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Difficulty Level</h3>
+                    <p className="text-xs text-slate-400">Controls AI assertiveness, interruptions & turn pacing</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  {(['friendly', 'realistic', 'tough', 'slow'] as DifficultyPreset[]).map((presetKey) => {
+                    const preset = DIFFICULTY_PRESETS[presetKey];
+                    const isSelected = difficulty === presetKey;
+                    return (
+                      <button
+                        key={presetKey}
+                        type="button"
+                        onClick={() => handleDifficultyChange(presetKey)}
+                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-brand-950/60 border-brand-400 ring-1 ring-brand-400 shadow-xl shadow-brand-500/20'
+                            : 'glass-card border-white/5 hover:border-white/20 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-slate-200'}`}>
+                            {preset.label}
+                          </span>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-brand-accent" />}
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1 line-clamp-2 leading-tight">
+                          {preset.tagline}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* C2: Role Assignment */}
+            {FEATURES.enableRoleAssignment && (
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-brand-600 to-brand-accent flex items-center justify-center text-white text-xs font-bold shadow-md shadow-brand-500/20">
+                    4
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Assign Me a Role (Optional)</h3>
+                    <p className="text-xs text-slate-400">Practice specific GD tactics and leadership positions</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  {(['none', 'first_speaker', 'contrarian', 'summarizer'] as CandidateRole[]).map((rKey) => {
+                    const rConfig = CANDIDATE_ROLES[rKey];
+                    const isSelected = candidateRole === rKey;
+                    return (
+                      <button
+                        key={rKey}
+                        type="button"
+                        onClick={() => setCandidateRole(rKey)}
+                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-cyan-950/60 border-cyan-400 ring-1 ring-cyan-400 shadow-xl shadow-cyan-500/20'
+                            : 'glass-card border-white/5 hover:border-white/20 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className={`text-xs font-bold ${isSelected ? 'text-cyan-300' : 'text-slate-200'}`}>
+                            {rConfig.badge}
+                          </span>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-cyan-400" />}
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1 line-clamp-2 leading-tight">
+                          {rConfig.title}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* C3: Case Study Scenario Selector (if Case-based category is chosen or active) */}
+          {FEATURES.enableCaseStudyMode && selectedCategory === 'Case-based' && (
+            <div className="space-y-3 pt-6 border-t border-white/5">
+              <div className="flex items-center space-x-2.5">
+                <Briefcase className="w-5 h-5 text-amber-400" />
+                <div>
+                  <h3 className="text-sm font-bold text-white">Case Study Decision Room</h3>
+                  <p className="text-xs text-slate-400">The panel must debate the dilemma and reach a group consensus</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {CASE_STUDIES.map((cs) => {
+                  const isSelected = selectedCaseStudyId === cs.id || selectedTopic.includes(cs.company);
+                  return (
+                    <div
+                      key={cs.id}
+                      onClick={() => {
+                        setSelectedCaseStudyId(cs.id);
+                        setSelectedTopic(`[Case Study: ${cs.company}] ${cs.title}`);
+                      }}
+                      className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
+                        isSelected
+                          ? 'bg-amber-950/50 border-amber-400 ring-1 ring-amber-400 shadow-xl shadow-amber-500/20'
+                          : 'glass-card border-white/5 hover:border-amber-400/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">
+                          {cs.company}
+                        </span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                      </div>
+                      <h4 className="text-xs font-bold text-white line-clamp-1">{cs.title}</h4>
+                      <p className="text-[11px] text-slate-400 line-clamp-3 leading-relaxed">
+                        {cs.scenario}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* BENTO ROW 4: INTERACTION MODE & SESSION CONTROLS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-white/5">
             {/* Input Mode Switcher */}
             <div className="space-y-3">
               <div className="flex items-center space-x-2.5">
                 <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-brand-600 to-brand-accent flex items-center justify-center text-white text-xs font-bold shadow-md shadow-brand-500/20">
-                  3
+                  5
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white">Interaction Mode</h3>
@@ -416,7 +571,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStartRoom }) => {
             <div className="space-y-3">
               <div className="flex items-center space-x-2.5">
                 <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-brand-600 to-brand-accent flex items-center justify-center text-white text-xs font-bold shadow-md shadow-brand-500/20">
-                  4
+                  6
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white">Session Duration</h3>
@@ -451,7 +606,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStartRoom }) => {
             </div>
           </div>
 
-          {/* BENTO ROW 4: AI PATIENCE SLIDER */}
+          {/* BENTO ROW 5: AI PATIENCE SLIDER */}
           <div className="space-y-3 pt-6 border-t border-white/5">
             <div className="flex items-center justify-between">
               <label className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center space-x-2">
@@ -464,7 +619,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStartRoom }) => {
             </div>
             <input
               type="range"
-              min={600}
+              min={500}
               max={2500}
               step={100}
               value={patienceMs}
@@ -472,7 +627,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStartRoom }) => {
               className="w-full accent-brand-500 h-2.5 bg-surface-100 rounded-lg cursor-pointer"
             />
             <div className="flex justify-between text-[11px] text-slate-500">
-              <span>Fast-Paced Competition (0.6s)</span>
+              <span>Fast-Paced Competition (0.5s)</span>
               <span>Standard Placement Prep (1.2s default)</span>
               <span>Patient & Forgiving (2.5s)</span>
             </div>

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # GD Arena 🎙️
 
 > **Voice-First AI Group Discussion Practice Room with Evidence-Backed Feedback**  
@@ -126,3 +127,6 @@ npm run simulate
 
 - **Final-Year Campus Placement Candidates:** Students preparing for Tier-1 and Tier-2 software, consulting, and finance placement rounds.
 - **Shy First-Time Candidates:** Students needing a low-stakes, supportive environment with adjustable patience settings to build confidence.
+=======
+# GD-Arena
+>>>>>>> 86cf85e012ada1a33bdb3197a15905f8d042cead
